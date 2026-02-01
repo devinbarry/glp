@@ -2,6 +2,9 @@
 name = "glp"
 version = "0.1.0"
 edition = "2021"
+description = "GitLab Pipeline CLI"
+license = "MIT"
+publish = false
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -15,3 +18,8 @@ colored = "2"
 url = "2"
 urlencoding = "2"
 dirs = "5"
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]

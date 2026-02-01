@@ -11,8 +11,7 @@ use config::Config;
 use error::Result;
 
 #[derive(Parser)]
-#[command(name = "glp")]
-#[command(about = "GitLab Pipeline CLI")]
+#[command(name = "glp", version, about = "GitLab Pipeline CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
