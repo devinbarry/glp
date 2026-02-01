@@ -2,6 +2,7 @@ mod client;
 mod config;
 mod error;
 mod models;
+mod output;
 
 use clap::{Parser, Subcommand};
 
