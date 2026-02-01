@@ -135,3 +135,67 @@ impl Config {
         urlencoding::encode(&self.project).to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_project_from_ssh_url() {
+        let url = "git@gitlab.com:group/project.git";
+        assert_eq!(
+            Config::extract_project_from_url(url),
+            Some("group/project".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_project_from_ssh_url_nested() {
+        let url = "git@gitlab.com:group/subgroup/project.git";
+        assert_eq!(
+            Config::extract_project_from_url(url),
+            Some("group/subgroup/project".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_project_from_https_url() {
+        let url = "https://gitlab.com/group/project.git";
+        assert_eq!(
+            Config::extract_project_from_url(url),
+            Some("group/project".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_project_from_https_url_no_git_suffix() {
+        let url = "https://gitlab.com/group/project";
+        assert_eq!(
+            Config::extract_project_from_url(url),
+            Some("group/project".to_string())
+        );
+    }
+
+    #[test]
+    fn api_url_builds_correctly() {
+        let config = Config {
+            token: "test".to_string(),
+            host: "gitlab.example.com".to_string(),
+            project: "group/project".to_string(),
+        };
+        assert_eq!(
+            config.api_url("/projects/123/pipelines"),
+            "https://gitlab.example.com/api/v4/projects/123/pipelines"
+        );
+    }
+
+    #[test]
+    fn project_encoded_encodes_slashes() {
+        let config = Config {
+            token: "test".to_string(),
+            host: "gitlab.com".to_string(),
+            project: "group/subgroup/project".to_string(),
+        };
+        assert_eq!(config.project_encoded(), "group%2Fsubgroup%2Fproject");
+    }
+}
