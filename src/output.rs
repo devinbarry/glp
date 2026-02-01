@@ -27,8 +27,8 @@ pub fn print_pipeline_header(pipeline: &Pipeline) {
 
 pub fn print_jobs_table(jobs: &[Job]) {
     println!(
-        "{:<20} {:<8} {:<10} {:<10} {}",
-        "JOB", "ID", "STATUS", "DURATION", "STAGE"
+        "{:<20} {:<8} {:<10} {:<10} STAGE",
+        "JOB", "ID", "STATUS", "DURATION"
     );
 
     for job in jobs {
@@ -45,10 +45,7 @@ pub fn print_jobs_table(jobs: &[Job]) {
 }
 
 pub fn print_status_table(jobs: &[Job]) {
-    println!(
-        "{:<12} {:<20} {:<10} {}",
-        "STAGE", "JOB", "STATUS", "DURATION"
-    );
+    println!("{:<12} {:<20} {:<10} DURATION", "STAGE", "JOB", "STATUS");
 
     for job in jobs {
         let status = status_color(&job.status);

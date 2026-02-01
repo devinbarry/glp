@@ -18,7 +18,8 @@ impl GitLabClient {
 
     async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = self.config.api_url(path);
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("PRIVATE-TOKEN", &self.config.token)
             .send()
@@ -35,7 +36,8 @@ impl GitLabClient {
 
     async fn get_text(&self, path: &str) -> Result<String> {
         let url = self.config.api_url(path);
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("PRIVATE-TOKEN", &self.config.token)
             .send()
@@ -52,7 +54,8 @@ impl GitLabClient {
 
     async fn post<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = self.config.api_url(path);
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("PRIVATE-TOKEN", &self.config.token)
             .send()
@@ -85,7 +88,10 @@ impl GitLabClient {
 
     pub async fn get_pipeline_jobs(&self, pipeline_id: u64) -> Result<Vec<serde_json::Value>> {
         let project = self.config.project_encoded();
-        let path = format!("/projects/{}/pipelines/{}/jobs?per_page=100", project, pipeline_id);
+        let path = format!(
+            "/projects/{}/pipelines/{}/jobs?per_page=100",
+            project, pipeline_id
+        );
         self.get(&path).await
     }
 

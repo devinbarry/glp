@@ -26,7 +26,11 @@ impl Config {
         let host = Self::resolve_host();
         let project = Self::resolve_project(project_override)?;
 
-        Ok(Config { token, host, project })
+        Ok(Config {
+            token,
+            host,
+            project,
+        })
     }
 
     fn resolve_token() -> Result<String> {
@@ -113,7 +117,10 @@ impl Config {
 
         // HTTPS: https://gitlab.com/group/project.git
         if let Ok(parsed) = url::Url::parse(url) {
-            let path = parsed.path().trim_start_matches('/').trim_end_matches(".git");
+            let path = parsed
+                .path()
+                .trim_start_matches('/')
+                .trim_end_matches(".git");
             return Some(path.to_string());
         }
 

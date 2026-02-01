@@ -65,17 +65,29 @@ async fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Status { json, project, git_ref } => {
+        Commands::Status {
+            json,
+            project,
+            git_ref,
+        } => {
             let config = Config::load(project)?;
             let client = GitLabClient::new(config);
             commands::status::run(client, git_ref, json).await
         }
-        Commands::Jobs { pipeline_id, json, project } => {
+        Commands::Jobs {
+            pipeline_id,
+            json,
+            project,
+        } => {
             let config = Config::load(project)?;
             let client = GitLabClient::new(config);
             commands::jobs::run(client, pipeline_id, json).await
         }
-        Commands::Log { job_id, tail, project } => {
+        Commands::Log {
+            job_id,
+            tail,
+            project,
+        } => {
             let config = Config::load(project)?;
             let client = GitLabClient::new(config);
             commands::log::run(client, job_id, tail).await

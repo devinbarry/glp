@@ -12,7 +12,9 @@ pub async fn run(client: GitLabClient, git_ref: Option<String>, json: bool) -> R
 
     // Get latest pipeline for this ref
     let pipelines = client.list_pipelines(Some(&git_ref)).await?;
-    let pipeline_value = pipelines.into_iter().next()
+    let pipeline_value = pipelines
+        .into_iter()
+        .next()
         .ok_or_else(|| GlpError::NoPipeline(git_ref.clone()))?;
 
     let pipeline = Pipeline::from_json(pipeline_value.clone())
@@ -20,10 +22,7 @@ pub async fn run(client: GitLabClient, git_ref: Option<String>, json: bool) -> R
 
     // Get jobs for this pipeline
     let job_values = client.get_pipeline_jobs(pipeline.id).await?;
-    let jobs: Vec<Job> = job_values
-        .into_iter()
-        .filter_map(Job::from_json)
-        .collect();
+    let jobs: Vec<Job> = job_values.into_iter().filter_map(Job::from_json).collect();
 
     if json {
         let output = serde_json::json!({
