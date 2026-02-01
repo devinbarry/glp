@@ -76,6 +76,7 @@ impl GitLabClient {
         self.get(&path).await
     }
 
+    #[allow(dead_code)]
     pub async fn get_pipeline(&self, pipeline_id: u64) -> Result<serde_json::Value> {
         let project = self.config.project_encoded();
         let path = format!("/projects/{}/pipelines/{}", project, pipeline_id);

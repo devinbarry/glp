@@ -1,10 +1,14 @@
 mod client;
+mod commands;
 mod config;
 mod error;
 mod models;
 mod output;
 
 use clap::{Parser, Subcommand};
+use client::GitLabClient;
+use config::Config;
+use error::Result;
 
 #[derive(Parser)]
 #[command(name = "glp")]
@@ -51,12 +55,35 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
+    if let Err(e) = run().await {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+async fn run() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Status { .. } => println!("status not implemented"),
-        Commands::Jobs { .. } => println!("jobs not implemented"),
-        Commands::Log { .. } => println!("log not implemented"),
-        Commands::Retry { .. } => println!("retry not implemented"),
+        Commands::Status { json, project, git_ref } => {
+            let config = Config::load(project)?;
+            let client = GitLabClient::new(config);
+            commands::status::run(client, git_ref, json).await
+        }
+        Commands::Jobs { pipeline_id, json, project } => {
+            let config = Config::load(project)?;
+            let client = GitLabClient::new(config);
+            commands::jobs::run(client, pipeline_id, json).await
+        }
+        Commands::Log { job_id, tail, project } => {
+            let config = Config::load(project)?;
+            let client = GitLabClient::new(config);
+            commands::log::run(client, job_id, tail).await
+        }
+        Commands::Retry { job_id, project } => {
+            let config = Config::load(project)?;
+            let client = GitLabClient::new(config);
+            commands::retry::run(client, job_id).await
+        }
     }
 }

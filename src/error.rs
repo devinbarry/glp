@@ -21,6 +21,7 @@ pub enum GlpError {
     NoPipeline(String),
 
     #[error("Job {0} not found")]
+    #[allow(dead_code)]
     JobNotFound(u64),
 }
 
