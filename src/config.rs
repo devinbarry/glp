@@ -10,20 +10,22 @@ pub struct Config {
     pub project: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 struct GlabConfig {
+    host: Option<String>,
     hosts: Option<std::collections::HashMap<String, GlabHost>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 struct GlabHost {
     token: Option<String>,
 }
 
 impl Config {
     pub fn load(project_override: Option<String>) -> Result<Self> {
-        let token = Self::resolve_token()?;
-        let host = Self::resolve_host();
+        let glab_config = Self::read_glab_config().unwrap_or_default();
+        let host = Self::resolve_host(&glab_config);
+        let token = Self::resolve_token(&glab_config, &host)?;
         let project = Self::resolve_project(project_override)?;
 
         Ok(Config {
@@ -33,7 +35,7 @@ impl Config {
         })
     }
 
-    fn resolve_token() -> Result<String> {
+    fn resolve_token(glab_config: &GlabConfig, host: &str) -> Result<String> {
         // 1. Environment variables
         if let Ok(token) = std::env::var("GITLAB_TOKEN") {
             return Ok(token);
@@ -42,22 +44,37 @@ impl Config {
             return Ok(token);
         }
 
-        // 2. glab config
-        if let Some(token) = Self::read_glab_token() {
-            return Ok(token);
+        // 2. glab config - get token for specific host
+        if let Some(hosts) = &glab_config.hosts {
+            if let Some(host_config) = hosts.get(host) {
+                if let Some(token) = &host_config.token {
+                    if !token.is_empty() {
+                        return Ok(token.clone());
+                    }
+                }
+            }
         }
 
         Err(GlpError::NoToken)
     }
 
-    fn resolve_host() -> String {
+    fn resolve_host(glab_config: &GlabConfig) -> String {
         // 1. Environment variable
         if let Ok(host) = std::env::var("GITLAB_HOST") {
             return host;
         }
 
-        // 2. glab config (simplified - just use default)
-        // 3. Default
+        // 2. Host from git remote
+        if let Some(host) = Self::extract_host_from_remote() {
+            return host;
+        }
+
+        // 3. glab config default host
+        if let Some(host) = &glab_config.host {
+            return host.clone();
+        }
+
+        // 4. Default
         "gitlab.com".to_string()
     }
 
@@ -75,22 +92,59 @@ impl Config {
         Err(GlpError::NoProject)
     }
 
-    fn glab_config_path() -> Option<PathBuf> {
-        dirs::config_dir().map(|p| p.join("glab-cli").join("config.yml"))
+    fn glab_config_paths() -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+
+        // macOS: ~/Library/Application Support/glab-cli/config.yml
+        if let Some(data_dir) = dirs::data_dir() {
+            paths.push(data_dir.join("glab-cli").join("config.yml"));
+        }
+
+        // Linux/others: ~/.config/glab-cli/config.yml
+        if let Some(config_dir) = dirs::config_dir() {
+            paths.push(config_dir.join("glab-cli").join("config.yml"));
+        }
+
+        paths
     }
 
-    fn read_glab_token() -> Option<String> {
-        let path = Self::glab_config_path()?;
-        let content = std::fs::read_to_string(path).ok()?;
-        let config: GlabConfig = yaml_serde::from_str(&content).ok()?;
-
-        // Get token from first host (simplified)
-        let hosts = config.hosts?;
-        for (_host, host_config) in hosts {
-            if let Some(token) = host_config.token {
-                return Some(token);
+    fn read_glab_config() -> Option<GlabConfig> {
+        for path in Self::glab_config_paths() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(config) = yaml_serde::from_str(&content) {
+                    return Some(config);
+                }
             }
         }
+        None
+    }
+
+    fn extract_host_from_remote() -> Option<String> {
+        let output = Command::new("git")
+            .args(["remote", "get-url", "origin"])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Self::extract_host_from_url(&url)
+    }
+
+    fn extract_host_from_url(url: &str) -> Option<String> {
+        // SSH: git@gitlab.com:group/project.git
+        if url.starts_with("git@") {
+            let host = url.strip_prefix("git@")?.split(':').next()?;
+            return Some(host.to_string());
+        }
+
+        // HTTPS: https://gitlab.com/group/project.git
+        if let Ok(parsed) = url::Url::parse(url) {
+            return parsed.host_str().map(|h| h.to_string());
+        }
+
         None
     }
 
@@ -173,6 +227,24 @@ mod tests {
         assert_eq!(
             Config::extract_project_from_url(url),
             Some("group/project".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_host_from_ssh_url() {
+        let url = "git@gitlab.example.com:group/project.git";
+        assert_eq!(
+            Config::extract_host_from_url(url),
+            Some("gitlab.example.com".to_string())
+        );
+    }
+
+    #[test]
+    fn extract_host_from_https_url() {
+        let url = "https://gitlab.example.com/group/project.git";
+        assert_eq!(
+            Config::extract_host_from_url(url),
+            Some("gitlab.example.com".to_string())
         );
     }
 
