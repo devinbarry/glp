@@ -107,3 +107,161 @@ impl GitLabClient {
         self.post(&path).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::Matcher;
+
+    fn test_client(server: &mockito::Server) -> GitLabClient {
+        let config = Config {
+            token: "test-token".to_string(),
+            host: server.host_with_port(),
+            project: "group/project".to_string(),
+        };
+        GitLabClient::new(config)
+    }
+
+    #[tokio::test]
+    async fn list_pipelines_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines")
+            .match_query(Matcher::AllOf(vec![Matcher::UrlEncoded(
+                "per_page".into(),
+                "1".into(),
+            )]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":1,"ref":"main","status":"success"}]"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.list_pipelines(None).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["id"], 1);
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn list_pipelines_with_ref() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines")
+            .match_query(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("per_page".into(), "1".into()),
+                Matcher::UrlEncoded("ref".into(), "feature/branch".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":2,"ref":"feature/branch","status":"running"}]"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.list_pipelines(Some("feature/branch")).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["ref"], "feature/branch");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn list_pipelines_api_error() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines")
+            .match_query(Matcher::Any)
+            .with_status(403)
+            .with_body("Forbidden")
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.list_pipelines(None).await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            matches!(err, GlpError::Api(ref msg) if msg.contains("403") && msg.contains("Forbidden"))
+        );
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn get_pipeline_jobs_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines/123/jobs")
+            .match_query(Matcher::UrlEncoded("per_page".into(), "100".into()))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":456,"name":"build","status":"success","stage":"build"}]"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.get_pipeline_jobs(123).await.unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["name"], "build");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn get_job_log_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/jobs/456/trace")
+            .with_status(200)
+            .with_header("content-type", "text/plain")
+            .with_body("line1\nline2\nline3")
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.get_job_log(456).await.unwrap();
+
+        assert_eq!(result, "line1\nline2\nline3");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn retry_job_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/v4/projects/group%2Fproject/jobs/789/retry")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"{"id":790,"name":"test-job","status":"pending"}"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.retry_job(789).await.unwrap();
+
+        assert_eq!(result["id"], 790);
+        assert_eq!(result["name"], "test-job");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn retry_job_server_error() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/api/v4/projects/group%2Fproject/jobs/789/retry")
+            .with_status(500)
+            .with_body("Internal Server Error")
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client.retry_job(789).await;
+
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), GlpError::Api(ref msg) if msg.contains("500")));
+        mock.assert_async().await;
+    }
+}

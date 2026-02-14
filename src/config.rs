@@ -182,7 +182,12 @@ impl Config {
     }
 
     pub fn api_url(&self, path: &str) -> String {
-        format!("https://{}/api/v4{}", self.host, path)
+        let scheme = if self.host.starts_with("127.0.0.1") || self.host.starts_with("localhost") {
+            "http"
+        } else {
+            "https"
+        };
+        format!("{}://{}/api/v4{}", scheme, self.host, path)
     }
 
     pub fn project_encoded(&self) -> String {
@@ -193,6 +198,8 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::GlpError;
+    use serial_test::serial;
 
     #[test]
     fn extract_project_from_ssh_url() {
@@ -269,5 +276,139 @@ mod tests {
             project: "group/subgroup/project".to_string(),
         };
         assert_eq!(config.project_encoded(), "group%2Fsubgroup%2Fproject");
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_token_from_gitlab_token_env() {
+        unsafe {
+            std::env::set_var("GITLAB_TOKEN", "tok-from-env");
+            std::env::remove_var("GITLAB_PRIVATE_TOKEN");
+        }
+        let config = GlabConfig::default();
+        let result = Config::resolve_token(&config, "gitlab.com");
+        unsafe {
+            std::env::remove_var("GITLAB_TOKEN");
+        }
+        assert_eq!(result.unwrap(), "tok-from-env");
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_token_from_gitlab_private_token_env() {
+        unsafe {
+            std::env::remove_var("GITLAB_TOKEN");
+            std::env::set_var("GITLAB_PRIVATE_TOKEN", "private-tok");
+        }
+        let config = GlabConfig::default();
+        let result = Config::resolve_token(&config, "gitlab.com");
+        unsafe {
+            std::env::remove_var("GITLAB_PRIVATE_TOKEN");
+        }
+        assert_eq!(result.unwrap(), "private-tok");
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_token_from_glab_config() {
+        unsafe {
+            std::env::remove_var("GITLAB_TOKEN");
+            std::env::remove_var("GITLAB_PRIVATE_TOKEN");
+        }
+        let mut hosts = std::collections::HashMap::new();
+        hosts.insert(
+            "gitlab.com".to_string(),
+            GlabHost {
+                token: Some("glab-tok".to_string()),
+            },
+        );
+        let config = GlabConfig {
+            host: None,
+            hosts: Some(hosts),
+        };
+        let result = Config::resolve_token(&config, "gitlab.com");
+        assert_eq!(result.unwrap(), "glab-tok");
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_token_missing_returns_no_token() {
+        unsafe {
+            std::env::remove_var("GITLAB_TOKEN");
+            std::env::remove_var("GITLAB_PRIVATE_TOKEN");
+        }
+        let config = GlabConfig::default();
+        let result = Config::resolve_token(&config, "gitlab.com");
+        assert!(matches!(result, Err(GlpError::NoToken)));
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_host_from_env_var() {
+        unsafe {
+            std::env::set_var("GITLAB_HOST", "env.gitlab.com");
+        }
+        let config = GlabConfig::default();
+        let result = Config::resolve_host(&config);
+        unsafe {
+            std::env::remove_var("GITLAB_HOST");
+        }
+        assert_eq!(result, "env.gitlab.com");
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_host_default_fallback() {
+        unsafe {
+            std::env::remove_var("GITLAB_HOST");
+        }
+        let config = GlabConfig::default();
+        let result = Config::resolve_host(&config);
+        // Result is either from git remote or the default "gitlab.com"
+        // (depends on test environment). At minimum it should not be empty.
+        assert!(!result.is_empty());
+    }
+
+    #[test]
+    #[serial]
+    fn resolve_host_env_takes_priority() {
+        unsafe {
+            std::env::set_var("GITLAB_HOST", "priority.gitlab.com");
+        }
+        let config = GlabConfig {
+            host: Some("config.gitlab.com".to_string()),
+            hosts: None,
+        };
+        let result = Config::resolve_host(&config);
+        unsafe {
+            std::env::remove_var("GITLAB_HOST");
+        }
+        assert_eq!(result, "priority.gitlab.com");
+    }
+
+    #[test]
+    fn resolve_project_with_override() {
+        let result = Config::resolve_project(Some("my-group/my-project".to_string()));
+        assert_eq!(result.unwrap(), "my-group/my-project");
+    }
+
+    #[test]
+    fn resolve_project_override_takes_priority() {
+        // Even if git remote exists, override should win
+        let result = Config::resolve_project(Some("override/project".to_string()));
+        assert_eq!(result.unwrap(), "override/project");
+    }
+
+    #[test]
+    fn api_url_localhost_uses_http() {
+        let config = Config {
+            token: "test".to_string(),
+            host: "127.0.0.1:1234".to_string(),
+            project: "group/project".to_string(),
+        };
+        assert_eq!(
+            config.api_url("/projects/123/pipelines"),
+            "http://127.0.0.1:1234/api/v4/projects/123/pipelines"
+        );
     }
 }

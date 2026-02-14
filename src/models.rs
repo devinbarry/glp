@@ -139,4 +139,35 @@ mod tests {
         let json = json!({"invalid": "data"});
         assert!(Pipeline::from_json(json).is_none());
     }
+
+    #[test]
+    fn job_from_json_with_null_optional_fields() {
+        let json = json!({
+            "id": 100,
+            "name": "deploy",
+            "status": "pending",
+            "stage": "deploy",
+            "duration": null,
+            "created_at": "2026-01-31T12:00:00Z",
+            "started_at": null,
+            "finished_at": null,
+            "web_url": "https://gitlab.com/group/project/-/jobs/100"
+        });
+        let job = Job::from_json(json).unwrap();
+        assert_eq!(job.duration, None);
+        assert_eq!(job.started_at, None);
+        assert_eq!(job.finished_at, None);
+        assert_eq!(job.duration_str(), "-");
+    }
+
+    #[test]
+    fn job_from_json_invalid_returns_none() {
+        let json = json!({"bad": true});
+        assert!(Job::from_json(json).is_none());
+    }
+
+    #[test]
+    fn format_duration_fractional_truncates() {
+        assert_eq!(format_duration(90.9), "1m 30s");
+    }
 }

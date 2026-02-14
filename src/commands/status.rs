@@ -12,13 +12,7 @@ pub async fn run(client: GitLabClient, git_ref: Option<String>, json: bool) -> R
 
     // Get latest pipeline for this ref
     let pipelines = client.list_pipelines(Some(&git_ref)).await?;
-    let pipeline_value = pipelines
-        .into_iter()
-        .next()
-        .ok_or_else(|| GlpError::NoPipeline(git_ref.clone()))?;
-
-    let pipeline = Pipeline::from_json(pipeline_value.clone())
-        .ok_or_else(|| GlpError::Api("Invalid pipeline response".to_string()))?;
+    let pipeline = find_pipeline(pipelines, &git_ref)?;
 
     // Get jobs for this pipeline
     let job_values = client.get_pipeline_jobs(pipeline.id).await?;
@@ -38,6 +32,14 @@ pub async fn run(client: GitLabClient, git_ref: Option<String>, json: bool) -> R
     Ok(())
 }
 
+fn find_pipeline(pipelines: Vec<serde_json::Value>, git_ref: &str) -> Result<Pipeline> {
+    let value = pipelines
+        .into_iter()
+        .next()
+        .ok_or_else(|| GlpError::NoPipeline(git_ref.to_string()))?;
+    Pipeline::from_json(value).ok_or_else(|| GlpError::Api("Invalid pipeline response".to_string()))
+}
+
 fn get_current_branch() -> Result<String> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -49,4 +51,42 @@ fn get_current_branch() -> Result<String> {
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn valid_pipeline_json() -> serde_json::Value {
+        json!({
+            "id": 741,
+            "ref": "main",
+            "status": "success",
+            "duration": 120.0,
+            "created_at": "2026-01-31T12:00:00Z",
+            "web_url": "https://gitlab.com/group/project/-/pipelines/741"
+        })
+    }
+
+    #[test]
+    fn find_pipeline_returns_first() {
+        let pipelines = vec![valid_pipeline_json()];
+        let result = find_pipeline(pipelines, "main").unwrap();
+        assert_eq!(result.id, 741);
+        assert_eq!(result.git_ref, "main");
+    }
+
+    #[test]
+    fn find_pipeline_empty_returns_no_pipeline_error() {
+        let result = find_pipeline(vec![], "main");
+        assert!(matches!(result, Err(GlpError::NoPipeline(ref r)) if r == "main"));
+    }
+
+    #[test]
+    fn find_pipeline_invalid_json_returns_api_error() {
+        let pipelines = vec![json!({"bad": true})];
+        let result = find_pipeline(pipelines, "main");
+        assert!(matches!(result, Err(GlpError::Api(_))));
+    }
 }

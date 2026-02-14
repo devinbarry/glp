@@ -19,6 +19,10 @@ url = "2"
 urlencoding = "2"
 dirs = "5"
 
+[dev-dependencies]
+serial_test = "3"
+mockito = "1"
+
 [dev-dependencies.cargo-husky]
 version = "1"
 default-features = false

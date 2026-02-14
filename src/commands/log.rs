@@ -6,9 +6,7 @@ pub async fn run(client: GitLabClient, job_id: u64, tail: Option<usize>) -> Resu
 
     match tail {
         Some(n) => {
-            let lines: Vec<&str> = log.lines().collect();
-            let start = lines.len().saturating_sub(n);
-            for line in &lines[start..] {
+            for line in tail_lines(&log, n) {
                 println!("{}", line);
             }
         }
@@ -18,4 +16,42 @@ pub async fn run(client: GitLabClient, job_id: u64, tail: Option<usize>) -> Resu
     }
 
     Ok(())
+}
+
+fn tail_lines(log: &str, n: usize) -> Vec<&str> {
+    let lines: Vec<&str> = log.lines().collect();
+    let start = lines.len().saturating_sub(n);
+    lines[start..].to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tail_lines_returns_last_n() {
+        assert_eq!(tail_lines("a\nb\nc\nd\ne", 3), vec!["c", "d", "e"]);
+    }
+
+    #[test]
+    fn tail_lines_n_exceeds_total() {
+        assert_eq!(tail_lines("a\nb", 10), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn tail_lines_zero() {
+        let result = tail_lines("a\nb\nc", 0);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn tail_lines_empty_input() {
+        let result = tail_lines("", 5);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn tail_lines_single_line() {
+        assert_eq!(tail_lines("single", 1), vec!["single"]);
+    }
 }
