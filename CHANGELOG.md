@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-02-14
+
+
+### Changed
+
+- skip cargo-husky hook installation in CI
+- add README and CLAUDE.md
+- add comprehensive test coverage across all modules
+- add release workflow to CLAUDE.md
+
 ## [0.1.0] - 2026-02-01
 
 
@@ -27,6 +37,7 @@ All notable changes to this project will be documented in this file.
 - add GitLab CI for running tests
 - use latest rust image instead of 1.82
 - add version control infrastructure
+- add changelog for v0.1.0
 
 
 ### Fixed
