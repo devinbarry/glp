@@ -70,11 +70,18 @@ impl GitLabClient {
         Ok(response.json().await?)
     }
 
-    pub async fn list_pipelines(&self, git_ref: Option<&str>) -> Result<Vec<serde_json::Value>> {
+    pub async fn list_pipelines(
+        &self,
+        git_ref: Option<&str>,
+        sha: Option<&str>,
+    ) -> Result<Vec<serde_json::Value>> {
         let project = self.config.project_encoded();
         let mut path = format!("/projects/{}/pipelines?per_page=1", project);
         if let Some(r) = git_ref {
             path.push_str(&format!("&ref={}", urlencoding::encode(r)));
+        }
+        if let Some(s) = sha {
+            path.push_str(&format!("&sha={}", urlencoding::encode(s)));
         }
         self.get(&path).await
     }
@@ -138,7 +145,7 @@ mod tests {
             .await;
 
         let client = test_client(&server);
-        let result = client.list_pipelines(None).await.unwrap();
+        let result = client.list_pipelines(None, None).await.unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0]["id"], 1);
@@ -161,10 +168,66 @@ mod tests {
             .await;
 
         let client = test_client(&server);
-        let result = client.list_pipelines(Some("feature/branch")).await.unwrap();
+        let result = client
+            .list_pipelines(Some("feature/branch"), None)
+            .await
+            .unwrap();
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0]["ref"], "feature/branch");
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn list_pipelines_with_sha() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines")
+            .match_query(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("per_page".into(), "1".into()),
+                Matcher::UrlEncoded("sha".into(), "abc123def456".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":3,"ref":"main","status":"success"}]"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client
+            .list_pipelines(None, Some("abc123def456"))
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["id"], 3);
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn list_pipelines_with_ref_and_sha() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/v4/projects/group%2Fproject/pipelines")
+            .match_query(Matcher::AllOf(vec![
+                Matcher::UrlEncoded("per_page".into(), "1".into()),
+                Matcher::UrlEncoded("ref".into(), "main".into()),
+                Matcher::UrlEncoded("sha".into(), "abc123".into()),
+            ]))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(r#"[{"id":4,"ref":"main","status":"running"}]"#)
+            .create_async()
+            .await;
+
+        let client = test_client(&server);
+        let result = client
+            .list_pipelines(Some("main"), Some("abc123"))
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0]["id"], 4);
         mock.assert_async().await;
     }
 
@@ -180,7 +243,7 @@ mod tests {
             .await;
 
         let client = test_client(&server);
-        let result = client.list_pipelines(None).await;
+        let result = client.list_pipelines(None, None).await;
 
         assert!(result.is_err());
         let err = result.unwrap_err();
