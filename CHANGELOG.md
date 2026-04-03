@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-04-03
+
+### Fixed
+
+- `glp status` no longer fails with "No pipeline found for ref 'HEAD'" in detached HEAD state — now falls back to querying by commit SHA
+
+### Changed
+
+- Release process is now two-step (`release-prep` + `release-finish`) to allow changelog review before tagging
+
 ## [0.1.1] - 2026-02-14
 
 
