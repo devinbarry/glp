@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-05-04
+
+First release published to crates.io. Now installable with `cargo install glp`.
+
+### Added
+
+- LICENSE file (MIT) at repo root
+- Crate metadata for crates.io: `repository`, `homepage`, `keywords`, `categories`
+- README badges (CI status, crates.io version, license), "Why glp?" section, `cargo install glp` instructions, Contributing section
+- GitHub Actions release workflow that publishes the crate and creates a GitHub Release on `v*` tags
+
+### Changed
+
+- Build pipeline rewritten to run `cargo fmt --check` and `cargo clippy -- -D warnings` in addition to `cargo test` on every push
+
 ## [0.1.2] - 2026-04-03
 
 ### Fixed
