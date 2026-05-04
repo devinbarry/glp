@@ -2,9 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.3] - 2026-05-04
+## [0.1.4] - 2026-05-04
 
 First release published to crates.io. Now installable with `cargo install glp`.
+
+### Fixed
+
+- Set `User-Agent` header on crates.io API probe in the release workflow (crates.io's data-access policy returns 403 without one). Without this fix, the publish step never ran. v0.1.3 tag was created during the rollout of this infrastructure but did not publish; v0.1.4 is the first version on crates.io.
+
+## [0.1.3] - 2026-05-04 (yanked — never published)
+
+Internal tag created during the rollout of GitHub + crates.io release infrastructure. The release workflow's crates.io API probe failed with HTTP 403 because the `curl` call lacked a `User-Agent` header (required by crates.io). No crate version 0.1.3 was published to crates.io. See v0.1.4 for the actual first release.
 
 ### Added
 
