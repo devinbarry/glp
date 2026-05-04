@@ -54,7 +54,10 @@ jobs:
           # Treat anything else (429 throttle, 5xx) as a hard failure — falling
           # through to publish on a non-deterministic answer would risk a duplicate
           # publish or a confusing "skipped because we couldn't check" outcome.
+          # User-Agent is mandatory: crates.io's data-access policy returns 403
+          # without one (https://crates.io/data-access).
           STATUS=$(curl -sS -o /dev/null -w "%{http_code}" \
+            -A "glp-release-workflow (https://github.com/devinbarry/glp)" \
             "https://crates.io/api/v1/crates/glp/$VERSION")
           case "$STATUS" in
             200)
