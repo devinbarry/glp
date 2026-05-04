@@ -4,6 +4,11 @@ version = "0.1.2"
 edition = "2021"
 description = "GitLab Pipeline CLI"
 license = "MIT"
+repository = "https://github.com/devinbarry/glp"
+homepage = "https://github.com/devinbarry/glp"
+readme = "README.md"
+keywords = ["gitlab", "ci", "pipeline", "cli", "devops"]
+categories = ["command-line-utilities", "development-tools"]
 publish = false
 
 [dependencies]
