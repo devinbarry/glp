@@ -4,7 +4,21 @@ A command-line tool for monitoring and debugging GitLab CI/CD pipelines.
 
 glp gives you quick access to pipeline status, job details, and logs directly from your terminal -- no browser tabs or `glab api` + `jq` chains required.
 
+[![CI](https://github.com/devinbarry/glp/actions/workflows/release.yml/badge.svg)](https://github.com/devinbarry/glp/actions/workflows/release.yml)
+[![crates.io](https://img.shields.io/crates/v/glp.svg)](https://crates.io/crates/glp)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+## Why glp?
+
+The GitLab REST API works fine with `glab api ... | jq ...`, but every common pipeline question — "did my push pass CI?", "what failed?", "show me the log" — turns into a custom command chain. glp packages those questions into typed subcommands with clean output, JSON support, and zero glue.
+
 ## Installation
+
+### From crates.io
+
+```sh
+cargo install glp
+```
 
 ### From source
 
@@ -126,6 +140,14 @@ glp works with self-hosted GitLab instances. If your git remote points to a self
 export GITLAB_HOST=gitlab.example.com
 ```
 
+## Contributing
+
+Issues and PRs are welcome on GitHub. Note that primary development happens
+upstream and this repo is updated when releases are cut, so PR review may take
+longer than typical. For bug reports, please include the glp version
+(`glp --version`), GitLab host (self-hosted vs gitlab.com), and a redacted
+command transcript.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
